@@ -1,0 +1,42 @@
+name: arm64ec
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+  release:
+    types: [published]
+
+jobs:
+  focal:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        sparse-checkout: 'build-llvm.sh'
+    - name: free disk space
+      run: |
+        sudo swapoff -a
+        sudo rm -f /swapfile
+        sudo apt clean
+        df -h
+
+    - name: Build
+      run: |
+        sudo apt-get update && sudo apt-get install ninja-build
+        chmod +x build-llvm.sh
+        # Skip dynamic library dependencies that might make it harder to
+        # run the binaries on other distros (and that have little use within
+        # llvm-mingw).
+        LLVM_CMAKEFLAGS="-DLLVM_ENABLE_LIBXML2=OFF -DLLVM_ENABLE_TERMINFO=OFF -DLLDB_ENABLE_PYTHON=OFF" ./build-llvm.sh built
+
+    - name: tar
+      run: cd built; tar -czf ../arm64ec.tgz *
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: arm64ec.tgz
+        path: arm64ec.tgz
